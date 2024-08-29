@@ -1,5 +1,12 @@
 -- this is responsible for things like dash, movement, other character efvents
 
+--[[
+	𝗙𝗨𝗧𝗨𝗥𝗘 𝗡𝗢𝗧𝗘𝗦:
+
+	- Använd "HoldingValues" i local input för att hantera att flyga upp och ned.
+
+]]
+
 local module = {}
 
 -- // SERVICES
@@ -51,7 +58,7 @@ function module.Flight(tab)
 				warn("Starting to fly")
 				
 				-- BEGIN FLIGHT --
-				local FlightEffect = EffectModule("Flight", Effects)
+				EffectModule("Flight", Effects)
 				
 				-- Character Effects --
 				--Humanoid.WalkSpeed = 0
@@ -98,7 +105,6 @@ function module.Flight(tab)
 	
 	if tab.Task == "Movement" then
 		local CameraCFrame:CFrame = tab.CameraCFrame
-		local WASDKeysHeld = tab.WASD -- Table storing wasd keys like this: {["W"] = false, etc, etc} for all 4 keys
 		
 		--[[
 		Go to the wasd direction depending on what key is being held, 
@@ -107,29 +113,34 @@ function module.Flight(tab)
 		If multiple keys are held, for erxample W and D, then it should go diagonally to the right etc etc
 		
 		]]
-		local Direction = Vector3.new(0,0,0)
-		local CameraDirection = CameraCFrame.LookVector
 		
 		local FlightVel:BodyVelocity = Root:FindFirstChild("FlightVelocity")
 		
 		if FlightVel then
-			-- calculate how they should move
-			
-			-- stop moving if all keys are false
-			if WASDKeysHeld["W"] == false and WASDKeysHeld["A"] == false and WASDKeysHeld["S"] == false and WASDKeysHeld["D"] == false then
-				FlightVel.Velocity = Vector3.new(0,0,0)
-			end
 			
 			local MoveDirection = Humanoid.MoveDirection
 			local CameraVector = CameraCFrame.LookVector
+
+			local VerticalDirection = nil -- Variable ot track descent and asencsion
 			
-			-- calculate how we should move depending on movedirection and camera vector
+			if tab.HeldKeys["Space"] == true and tab.HeldKeys["LeftControl"] == false then
+				VerticalDirection = Vector3.new(0,1,0)
+
+			elseif tab.HeldKeys["Space"] == false and tab.HeldKeys["LeftControl"] == true then
+				VerticalDirection = Vector3.new(0,-1,0)
+			end
 			
+			-- calculate how we should move depending on movedirection, Vertical and camera vector
 			if MoveDirection.Magnitude > 0 then
 				local Y = CameraVector.Y
 				
 				if MoveDirection:Dot(CameraVector) < 0 then
 					Y = -CameraVector.Y
+				end
+
+				if VerticalDirection ~= nil then
+					-- Add VerticalDirection to Y
+					Y = Y + VerticalDirection.Y
 				end
 				
 				FlightVel.Velocity = (MoveDirection + Vector3.new(0,Y,0)) * 50
