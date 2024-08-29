@@ -144,6 +144,26 @@ function module.Flight(tab)
 				end
 				
 				FlightVel.Velocity = (MoveDirection + Vector3.new(0,Y,0)) * 50
+
+			else -- theyre standing still
+
+				-- check if they're trying to descend or ascend
+				if VerticalDirection ~= nil then -- theyre tring to move
+					
+				else -- They're in an "idle" state
+
+					-- Return if an animation is playing
+					for _, track in pairs(Humanoid:GetPlayingAnimationTracks()) do
+						if track.Name == "FlightIdle" then
+							return
+						end
+					end
+
+					-- Start an idle if none is playing
+					local Animation:AnimationTrack = Humanoid:LoadAnimation(script.IdleAnimation)
+					Animation.Priority = Enum.AnimationPriority.Idle
+					Animation:Play()
+				end
 			end
 			
 		end
