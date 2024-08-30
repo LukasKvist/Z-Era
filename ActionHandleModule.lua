@@ -149,7 +149,8 @@ function module.Flight(tab)
 
 				-- check if they're trying to descend or ascend
 				if VerticalDirection ~= nil then -- theyre tring to move
-					
+					FlightVel.Velocity = VerticalDirection * 50
+
 				else -- They're in an "idle" state
 
 					-- Return if an animation is playing
