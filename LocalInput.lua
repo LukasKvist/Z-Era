@@ -170,7 +170,7 @@ coroutine.wrap(function()
 	while true do
 		task.wait()
 		if not Character:WaitForChild("Effects"):FindFirstChild("Flight") then continue end
-		
-		Remote:FireServer("Flight", {Task = "Movement"; HeldKeys = HoldingValues; CameraCFrame = workspace.CurrentCamera.CFrame})
+
+		Remote:FireServer("Flight", {Task = "Movement"; HeldKeys = HoldingValues; WASD = WASD; CameraCFrame = workspace.CurrentCamera.CFrame})
 	end
 end)()
