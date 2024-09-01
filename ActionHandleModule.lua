@@ -23,7 +23,7 @@ local CombatModule = require(game.ServerScriptService.Scripts.Modules.Player.Com
 
 -- // PLAYER VARIABLES
 local Character = script.Parent.Parent
-local Humanoid:Humanoid = Character:WaitForChild("Humanoid")
+local Humanoid = Character:WaitForChild("Humanoid")
 local Root:Part = Character:WaitForChild("HumanoidRootPart")
 
 local Effects = Character.Effects
@@ -35,7 +35,7 @@ function module.Combat(tab)
 	if Effects:FindFirstChild("Stun") then return end
 	if Effects:FindFirstChild("Skill") then return end
 	if Character:FindFirstChildOfClass("Tool") then return end
-	
+
 	CombatModule.ExecuteTask({Task = tab.Type; Player = Player; Character = Character; FightingStyle = "Normal"; Last = tab.LastM1; Aerial = tab.Aerial}) -- Fighting style will use data later on
 end
 
@@ -43,29 +43,38 @@ end
 local FlightCD = 2
 local FlightDB = false
 
+local BaseFlightSpeed = 60
+
+local IdleAnimation:AnimationTrack = Humanoid:LoadAnimation(script.FlightAnimations.IdleAnimation)
+local AscendAnim:AnimationTrack = Humanoid:LoadAnimation(script.FlightAnimations.Ascend)
+local DescendAnim:AnimationTrack = Humanoid:LoadAnimation(script.FlightAnimations.Descend)
+local FlightAnim:AnimationTrack = Humanoid:LoadAnimation(script.FlightAnimations.Flight)
+
 function module.Flight(tab)
 	if Effects:FindFirstChild("Stun") then return end
 	if Effects:FindFirstChild("Skill") then return end
 	if Effects:FindFirstChild("M1") then return end -- We will add so velocity goes to Vector.new(0,0,0) here
 	if Effects:FindFirstChild("Critical") then return end -- We will add so velocity goes to Vector.new(0,0,0) here
-	
+
 	-- Check what we should do --
 	if tab.Task == "Initialized" then -- This is for starting & stopping flight
 		if FlightDB == false then
 			FlightDB = true
-			
+
 			if not Effects:FindFirstChild("Flight") and not Root:FindFirstChild("FlightVelocity") then 
 				warn("Starting to fly")
-				
+
 				-- BEGIN FLIGHT --
-				EffectModule("Flight", Effects)
-				
+				task.delay(0.5, function()
+					EffectModule("Flight", Effects)
+				end)
+
 				-- Character Effects --
 				--Humanoid.WalkSpeed = 0
 				Humanoid.JumpPower = 0
-				
+
 				Character.Animate.Enabled = false
-				
+
 				for _, track in pairs(Humanoid:GetPlayingAnimationTracks()) do
 					track:Stop()
 				end
@@ -78,62 +87,104 @@ function module.Flight(tab)
 
 				Vel.Parent = Root
 				
+				-- Play animation
+				Humanoid:LoadAnimation(script.FlightAnimations.Jump):Play()
+
 				TS:Create(Root, TweenInfo.new(0.5), {CFrame = Root.CFrame + Vector3.new(0,1,0)}):Play()
-				
+
 			else
 				warn("Stopping flight")
-				
+
 				if Root:FindFirstChild("FlightVelocity") then
 					Root.FlightVelocity:Destroy()
 				end
-				
+
 				Effects.Flight:Destroy()
-				
+
 				-- Character Effects --
 				Humanoid.WalkSpeed = 16
 				Humanoid.JumpPower = 50
+				
+				local FallAnim = Humanoid:LoadAnimation(script.FlightAnimations.Fall)
+				FallAnim:Play()
 
 				Character.Animate.Enabled = true
+				
+				repeat task.wait() until Humanoid:GetState() == Enum.HumanoidStateType.Landed or Humanoid:GetState() ~= Enum.HumanoidStateType.Freefall
+				FallAnim:Stop()
+				Humanoid:LoadAnimation(script.FlightAnimations.Land):Play()
 			end
-			
+
 			task.wait(FlightCD)
 			FlightDB = false
 		end
 	end
-	
+
 	-- THIS IS FOR FLIGHT MOVEMENT --
-	
 	if tab.Task == "Movement" then
 		local CameraCFrame:CFrame = tab.CameraCFrame
-		
-		--[[
-		Go to the wasd direction depending on what key is being held, 
-		and what way the camera is facing. W will alwys go to where the camera is facing.
-		
-		If multiple keys are held, for erxample W and D, then it should go diagonally to the right etc etc
-		
-		]]
-		
 		local FlightVel:BodyVelocity = Root:FindFirstChild("FlightVelocity")
-		
+
 		if FlightVel then
-			
+
 			local MoveDirection = Humanoid.MoveDirection
 			local CameraVector = CameraCFrame.LookVector
 
 			local VerticalDirection = nil -- Variable ot track descent and asencsion
-			
+
 			if tab.HeldKeys["Space"] == true and tab.HeldKeys["LeftControl"] == false then
-				VerticalDirection = Vector3.new(0,1,0)
+				VerticalDirection = Vector3.new(0,0.5,0)
+				
+				if AscendAnim.IsPlaying == false then
+					AscendAnim:AdjustSpeed(1)
+					AscendAnim:Play()
+					
+					task.delay(0.35, function()
+						AscendAnim:AdjustSpeed(0)
+					end)
+					
+					if DescendAnim.IsPlaying then
+						DescendAnim:Stop()
+					end
+				end
 
 			elseif tab.HeldKeys["Space"] == false and tab.HeldKeys["LeftControl"] == true then
-				VerticalDirection = Vector3.new(0,-1,0)
+				VerticalDirection = Vector3.new(0,-0.5,0)
+				
+				if DescendAnim.IsPlaying == false then
+					DescendAnim:AdjustSpeed(1)
+					DescendAnim:Play()
+					
+					task.delay(0.5, function()
+						DescendAnim:AdjustSpeed(0)
+					end)
+
+					if AscendAnim.IsPlaying then
+						AscendAnim:Stop()
+					end
+				end
+				
+			else -- Not doing either of them
+				if DescendAnim.IsPlaying then
+					DescendAnim:Stop()
+
+				end
+				
+				if AscendAnim.IsPlaying then
+					AscendAnim:Stop()
+				end
+				
 			end
-			
+
 			-- calculate how we should move depending on movedirection, Vertical and camera vector
 			if MoveDirection.Magnitude > 0 then
-				local Y = CameraVector.Y
+				-- sotp idle animation
+				if IdleAnimation.IsPlaying then
+					IdleAnimation:Stop()
+				end
 				
+				local Y = CameraVector.Y
+
 				if MoveDirection:Dot(CameraVector) < 0 then
 					Y = -CameraVector.Y
 				end
@@ -142,31 +193,40 @@ function module.Flight(tab)
 					-- Add VerticalDirection to Y
 					Y = Y + VerticalDirection.Y
 				end
+
+				FlightVel.Velocity = (MoveDirection + Vector3.new(0,Y,0)) * BaseFlightSpeed
 				
-				FlightVel.Velocity = (MoveDirection + Vector3.new(0,Y,0)) * 50
+				if FlightAnim.IsPlaying then return end
+				
+				FlightAnim:AdjustSpeed(1)
+				FlightAnim:Play()
+				
+				task.delay(0.5, function()
+					FlightAnim:AdjustSpeed(0)
+				end)
+
 
 			else -- theyre standing still
 
 				-- check if they're trying to descend or ascend
 				if VerticalDirection ~= nil then -- theyre tring to move
-					FlightVel.Velocity = VerticalDirection * 50
+					FlightVel.Velocity = VerticalDirection * BaseFlightSpeed
 
 				else -- They're in an "idle" state
+					FlightVel.Velocity = Vector3.new(0,0,0)
 
 					-- Return if an animation is playing
-					for _, track in pairs(Humanoid:GetPlayingAnimationTracks()) do
-						if track.Name == "FlightIdle" then
-							return
-						end
+					if FlightAnim.IsPlaying then
+						FlightAnim:Stop()
 					end
+					
+					if IdleAnimation.IsPlaying then return end
 
 					-- Start an idle if none is playing
-					local Animation:AnimationTrack = Humanoid:LoadAnimation(script.IdleAnimation)
-					Animation.Priority = Enum.AnimationPriority.Idle
-					Animation:Play()
+					IdleAnimation:Play()
 				end
 			end
-			
+
 		end
 	end
 end
@@ -178,16 +238,16 @@ function module.EnergyBlast(tab)
 	if Effects:FindFirstChild("Stun") then return end
 	if Effects:FindFirstChild("M1") then return end
 	if Effects:FindFirstChild("Skill") then return end
-	
+
 	if BlastDB == false then
 		BlastDB = true
-		
+
 		if tick() - tab.TimeHeld >= 2 then
 			warn("Doing 8 blasts")
 
 		else
 			warn("Doing one blast")
-		
+
 		end
 		task.wait(BlastCD)
 		BlastDB = false
@@ -208,11 +268,11 @@ function module.Parry(tab)
 	if Effects:FindFirstChild("ParryBlock") then return end
 	if Effects:FindFirstChild("M1") then return end
 	if Effects:FindFirstChild("Skill") then return end
-	
+
 	if tab.State == true then -- start blocking
 		if BlockDB == false then
 			BlockDB = true
-			
+
 			Character:SetAttribute("FKeyDown", true)
 			if ParryDB == false then -- fire a parry
 				ParryDB = true
@@ -251,27 +311,27 @@ function module.Parry(tab)
 				Block.Parent = Effects
 			end
 		end
-		
+
 	else -- STOP BLOCKING		
 		repeat task.wait() until not Effects:FindFirstChild("Parry")
-		
+
 		warn("Stopped blocking")
 
 		Character:SetAttribute("FKeyDown", false)
 		BlockAnim:Stop()
-		
+
 		if Effects:FindFirstChild("Block") then
 			Effects.Block:Destroy()
 		end
-		
+
 		task.wait(BlockCD)
-		
+
 		BlockDB = false
 	end
-	
+
 end
 
--- EXAMPLE OF A FUNCTION:
+-- DASH --
 local DashSpeed = 50
 local DashCd = 2
 local DashDuration = .2
